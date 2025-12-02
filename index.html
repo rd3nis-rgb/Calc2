@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Calc de valeur X et Y + Déplacement de bras</title>
+<style>
+/* --- CSS (inline) --- */
+body { font-family: Arial, sans-serif; background:#f5f7fa; margin:20px; }
+.card { background:white; padding:16px; border-radius:12px; max-width:900px; margin:auto;
+        box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+table { width:100%; border-collapse:collapse; margin-top:18px; }
+th, td { border:1px solid #888; padding:8px; text-align:center; }
+th { background:#e4e9f2; font-weight:bold; }
+.hidden { display:none; }
+.temp-input { padding:6px; border:2px solid #007bff; border-radius:6px; width:120px; }
+h2 { margin-top:30px; }
+
+/* small responsive */
+@media (max-width:700px){
+  .card{padding:12px}
+  table{font-size:13px}
+}
+.plage-reglage-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+.plage-reglage {
+    background: linear-gradient(90deg, #1976d2, #42a5f5);
+    color: white;
+    padding: 12px 22px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 1px;
+}
+.plage-reglage i { font-size: 20px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="card">
+  
+<div style="position:relative; margin:10px 0;">
+    <button id="btnMenu">☰ Menu</button>
+
+    <div id="menuOptions" 
+         style="display:none; 
+                position:absolute; 
+                left:0;
+                background:white; 
+                border:1px solid #ccc; 
+                border-radius:10px;
+                padding:10px; 
+                width:220px;
+                box-shadow:0 4px 10px rgba(0,0,0,0.15);
+                z-index:100;">
+
+        <button id="btnSaveProject">💾 Guardar Projecto</button><br>
+        <button id="btnLoadProject">📂 Abrir Projecto</button>
+
+<div id="submenuLoad" style="display:none; margin-top:8px; padding-left:10px;"></div><br>
+        <button id="btnDeleteProjects">🗑️ Apagar Todos os Projectos</button><br>
+        <button id="btnNewProject">🆕 Novo Projecto</button>
+    </div>
+</div>
+
+<div id="projectList" style="display:none; padding:10px; background:#eef; border-radius:8px; margin-bottom:8px;"></div>
+<h1>Calc de valeur X et Y</h1>
+
+  <label>Indique la température actuelle :</label>
+  <input id="temp" type="number" oninput="recalcular()" class="temp-input" placeholder="°C">
+
+  <div style="margin-top:20px;"><button style="padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:8px; cursor:pointer;" id="btnExportPDF">Export PDF</button></div>
+
+  <br><br>
+
+  <div class="plage-reglage-container">
+      <div class="plage-reglage">
+          <i>🌡️</i>
+          Plage de réglage : -10 à 60 °C
+      </div>
+  </div>
+
+  <table id="tbl">
+  <thead>
+  <tr>
+    <th>Tire</th>
+    <th>Longueur du tire</th>
+    <th>Longueur de la moitié du tir</th>
+    <th>Valeur d’ X</th>
+    <th>Valeur d’ Y</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td>188/11 au 187/05</td>
+    <td>1237.75</td>
+    <td>618.875</td>
+    <td class="X"></td>
+    <td class="Y"></td>
+  </tr>
+  <tr>
+    <td>187/19 au 186/05</td>
+    <td>1165.5</td>
+    <td>582.75</td>
+    <td class="X"></td>
+    <td class="Y"></td>
+  </tr>
+  <tr>
+    <td>186/13 au 185/07</td>
+    <td>1116</td>
+    <td>558</td>
+    <td class="X"></td>
+    <td class="Y"></td>
+  </tr>
+  <tr>
+    <td>185/15 au 184/05</td>
+    <td>1232.1</td>
+    <td>616.05</td>
+    <td class="X"></td>
+    <td class="Y"></td>
+  </tr>
+  </tbody>
+  </table>
+
+  <div style="margin-top:20px;"><button style="padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:8px; cursor:pointer;" id="btnAddTire">Rajouter un tire</button></div>
+
+  <h2>Décalage ellement griffer (valeur negatif bras vers anticheminement) valeur mm</h2>
+
+  <table id="bras">
+  <thead>
+  <tr>
+    <th>0–150m</th>
+    <th>150–300m</th>
+    <th>300–450m</th>
+    <th>450–600m</th>
+    <th>600–700m</th>
+  </tr>
+  </thead>
+  <tbody id="bras-body"></tbody>
+  </table>
+<div style="margin-top:20px;">
+  
+</div>
+
+
+<div class="button-row">
+  <button id="btnUploadExcel" class="modern-btn primary">📥 Rajouter liste supports</button>
+  <input type="file" id="excelInput" accept=".xlsx" style="display:none;">
+  <button id="btnClearPostes" class="modern-btn danger">🧹 Nettoyer liste supports</button>
+</div>
+
+
+<table id="postes">
+  <thead>
+    <tr>
+      <th>0–150m</th>
+      <th>150–300m</th>
+      <th>300–450m</th>
+      <th>450–600m</th>
+      <th>600–700m</th>
+    </tr>
+  </thead>
+  <tbody id="postes-body"></tbody>
+</table>
+
+
+</div>
+
+<!-- --- JS (inline) --- -->
+<script>
+// ----- funcoes do script.js integradas -----
+const brasData = [
+ {tmin:-12.5, tmax:-7.5,   C:-45, D:-134, E:-223, F:-312, G:-387},
+ {tmin:-7.5,  tmax:-2.5,   C:-38, D:-115, E:-191, F:-268, G:-332},
+ {tmin:-2.5,  tmax:2.5,    C:-32, D:-96,  E:-159, F:-223, G:-276},
+ {tmin:2.5,   tmax:7.5,    C:-26, D:-77,  E:-128, F:-179, G:-221},
+ {tmin:7.5,   tmax:12.5,   C:-19, D:-57,  E:-96,  F:-134, G:-166},
+ {tmin:12.5,  tmax:17.5,   C:-13, D:-38,  E:-64,  F:-89,  G:-111},
+ {tmin:17.5,  tmax:22.5,   C:-6,  D:-19,  E:-32,  F:-45,  G:-55},
+ {tmin:22.5,  tmax:27.5,   C:0,   D:0,    E:0,    F:0,    G:0},
+ {tmin:27.5,  tmax:32.5,   C:6,   D:19,   E:32,   F:45,   G:55},
+ {tmin:32.5,  tmax:37.5,   C:13,  D:38,   E:64,   F:89,   G:111},
+ {tmin:37.5,  tmax:42.5,   C:19,  D:57,   E:96,   F:134,  G:166},
+ {tmin:42.5,  tmax:47.5,   C:26,  D:77,   E:128,  F:179,  G:221},
+ {tmin:47.5,  tmax:52.5,   C:32,  D:96,   E:159,  F:223,  G:276},
+ {tmin:52.5,  tmax:57.5,   C:38,  D:115,  E:191,  F:268,  G:332},
+ {tmin:57.5,  tmax:62.5,   C:45,  D:134,  E:223,  F:312,  G:387}
+];
+
+function atualizarTabelaBras(T){
+    const tbody = document.getElementById("bras-body");
+    tbody.innerHTML = "";
+    if (isNaN(T)) return;
+    let row = brasData.find(r => T >= r.tmin && T < r.tmax);
+    if(!row) return;
+    let tr = document.createElement("tr");
+    tr.innerHTML = `<td>${row.C}</td><td>${row.D}</td><td>${row.E}</td><td>${row.F}</td><td>${row.G}</td>`;
+    tbody.appendChild(tr);
+}
+
+function firstTwoDigitsOfFloor(n) {
+  const s = String(Math.floor(Math.abs(n)));
+  if (s.length === 0) return 0;
+  return parseInt(s.substring(0, Math.min(2, s.length)), 10);
+}
+
+function recalcular() {
+  const T = parseFloat(document.getElementById("temp").value);
+  const rows = document.querySelectorAll("#tbl tbody tr");
+  const brasBody = document.getElementById("bras-body");
+
+  if (isNaN(T)) {
+    rows.forEach(r => {
+      const x = r.querySelector(".X");
+      const y = r.querySelector(".Y");
+      if (x) x.textContent = "";
+      if (y) y.textContent = "";
+    });
+    brasBody.innerHTML = "";
+    return;
+  }
+
+  rows.forEach(r => {
+    const cell = r.cells[2];
+    if (!cell) return;
+    const C = parseFloat(String(cell.textContent).replace(",", "."));
+    if (isNaN(C)) return;
+
+    const G = 17 * (C * (60 - T));
+    const H = firstTwoDigitsOfFloor(G);
+    const X = H + 40;
+    const Y = 5 * (X - 40);
+
+    const xEl = r.querySelector(".X");
+    const yEl = r.querySelector(".Y");
+    if (xEl) xEl.textContent = X;
+    if (yEl) yEl.textContent = Y;
+  });
+
+  atualizarTabelaBras(T);
+}
+
+// botão para adicionar linha
+document.getElementById("btnAddTire").addEventListener("click", function () {
+    let supports = prompt("Quels sont les supports du tire ?");
+    if (!supports) return;
+    let longueurStr = prompt("Quelle est la longueur du tire ?");
+    let longueur = parseFloat(String(longueurStr || "").replace(",", "."));
+    if (isNaN(longueur)) { alert("Valeur invalide."); return; }
+    let moitie = longueur / 2;
+    const tbody = document.querySelector("#tbl tbody");
+    const row = tbody.insertRow();
+    row.insertCell(0).textContent = supports;
+    row.insertCell(1).textContent = longueur;
+    row.insertCell(2).textContent = moitie;
+    const c5 = row.insertCell(3); c5.className = "X";
+    const c6 = row.insertCell(4); c6.className = "Y";
+    recalcular();
+});
+
+if (zeroIndex === -1) zeroIndex = 0;
+    list[zeroIndex].abs = 0;
+    let dist = 0;
+    for (let i = zeroIndex + 1; i < list.length; i++) {
+        dist += list[i].val;
+        list[i].abs = dist;
+    }
+    dist = 0;
+    for (let i = zeroIndex - 1; i >= 0; i--) {
+        dist -= list[i].val;
+        list[i].abs = dist;
+    }
+}
+computeAbsolutePositions(supportsList);
+
+</script>
+<script src="script.js"></script>
+</body>
+</html>
